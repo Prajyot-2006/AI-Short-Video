@@ -4,21 +4,63 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { EllipsisIcon, ImageIcon, Loader2Icon, PlaySquareIcon, Share2Icon, Trash2Icon } from "lucide-react";
 import { GhostButton, PrimaryButton } from "./Buttons";
+import { useAuth } from "@clerk/clerk-react";
+import api from "../configs/axios";
+import toast from "react-hot-toast";
 
 const ProjectCard = ({gen, setGenerations, forCommunity = false} : {gen: Project,
 setGenerations: React.Dispatch<React.SetStateAction<Project[]>>, forCommunity?:
 boolean}) => {
+        const {getToken} = useAuth();
         const navigate = useNavigate();
         const [menuOpen, setMenuOpen] = useState(false)
-        const handleDelete = async (id:string)=> {
-            const confirm = window.confirm('Are you sure you want to delete this project ?');
-            if(!confirm) return;
-            console.log(id);
-        }
-        const toggePublish = async (projectId:string)=> {
+        const handleDelete = async (id: string) => {
+            const confirm = window.confirm('Are you sure you want to delete this project?');
+            if (!confirm) return;
 
-            console.log(projectId)
+            try {
+                const token = await getToken();
+
+                const { data } = await api.delete(`/api/project/${id}`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                })
+
+                setGenerations((generations) =>
+                    generations.filter((gen) => gen.id !== id)
+                );
+
+                toast.success(data.message);
+            } catch (error: any) {
+                toast.error(error?.response?.data?.message || error.message);
+                console.log(error);
+            }
         }
+const togglePublish = async (projectId: string) => {
+    try {
+        const token = await getToken();
+
+        const { data } = await api.get(`/api/user/publish/${projectId}`, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        })
+
+        setGenerations((generations) =>
+            generations.map((gen) =>
+                gen.id === projectId
+                    ? { ...gen, isPublished: data.isPublished }
+                    : gen
+            )
+        );
+
+        toast.success(data.isPublished ? 'Project Published' : 'Project UnPublished');
+    } catch (error: any) {
+        toast.error(error?.response?.data?.message || error.message);
+        console.log(error);
+    }
+}
 
         return (
             <div key={gen.id} className="mb-4 break-inside-avoid">
@@ -134,7 +176,7 @@ boolean}) => {
                         {gen.productDescription && (
                             <div className="mt-3">
                                 <p className="text-xs text-gray-400 mb-1" >Description</p>
-                                <div className="text-sm text-gray-300 bg-white/3 p-2 rounded-md wrap-break-word">{gen.productDescription}</div>
+                                <div className="text-sm text-gray-300 bg-white/3 p-2 rounded-md break-words">{gen.productDescription}</div>
                             </div>
                         )}
                         {/*user prompt */}
@@ -151,7 +193,7 @@ boolean}) => {
                                 onClick={()=> {navigate(`/result/${gen.id}`); scrollTo(0,0)}}>
                                     View Details
                                 </GhostButton>
-                                <PrimaryButton onClick={()=> toggePublish(gen.id)}
+                                <PrimaryButton onClick={()=> togglePublish(gen.id)}
                                 className="rounded-md">
                                     {gen.isPublished ? 'Unpublish' : 'Publish'}
                                 </PrimaryButton>
